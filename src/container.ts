@@ -1,4 +1,4 @@
-import { canvas, ctx } from "./main";
+import { canvas, ctx, imagesCache, mousePosition } from "./main";
 
 export class CVector2D
 {
@@ -38,9 +38,13 @@ export class Container {
 
     public backgroundColor = "#ffffff5a";
     public drawBackground = true;
+    public backgroundImage?: HTMLImageElement;
+    public imageScale: number = 1;
 
     public fillHorizontal = false;
     public fillVertical = false;
+
+    public fillHorizontalPercentage = 1;
 
     private GetParentBounds(): { position: CVector2D; size: CVector2D } {
         if (this.parent) {
@@ -59,7 +63,7 @@ export class Container {
 
         // ajusta tamanho caso precise preencher
         if (this.fillHorizontal) {
-            this.size.x = parentSize.x;
+            this.size.x = parentSize.x * this.fillHorizontalPercentage;
         }
         if (this.fillVertical) {
             this.size.y = parentSize.y;
@@ -106,6 +110,32 @@ export class Container {
             ctx.fillRect(position.x, position.y, size.x, size.y);
         }
 
+        if(this.backgroundImage)
+        {
+            const newSize = new CVector2D(size.x, size.y);
+            newSize.x *= this.imageScale;
+            newSize.y *= this.imageScale;
+
+            const imagePosition = new CVector2D(position.x, position.y);
+
+            // centraliza: soma metade da diferença
+            imagePosition.x += (size.x - newSize.x) / 2;
+            imagePosition.y += (size.y - newSize.y) / 2;
+
+            ctx.drawImage(this.backgroundImage, imagePosition.x, imagePosition.y, newSize.x, newSize.y);
+        }
+
+        if (
+            mousePosition.x >= position.x &&
+            mousePosition.x <= position.x + size.x &&
+            mousePosition.y >= position.y &&
+            mousePosition.y <= position.y + size.y
+        ) {
+            ctx.strokeStyle = "yellow";  // cor da borda
+            ctx.lineWidth = 4;           // espessura
+            ctx.strokeRect(position.x, position.y, size.x, size.y);
+        }
+
         // desenha filhos
         for (const child of this.children) {
             child.Draw();
@@ -116,6 +146,11 @@ export class Container {
         container.parent = this;
         this.children.push(container);
     }
+
+    public SetBackgroundImage(fileName: string)
+    {
+        this.backgroundImage = imagesCache.get(fileName);
+    }
 }
 
 export class Label extends Container {
@@ -125,6 +160,8 @@ export class Label extends Container {
 
     public textHorizontalAlign: HorizontalAlign = HorizontalAlign.Left;
     public textVerticalAlign: VerticalAlign = VerticalAlign.Top;
+
+    public textMarginLeft: number = 0;
 
     public Draw() {
         super.Draw();
@@ -150,7 +187,7 @@ export class Label extends Container {
         ctx.textBaseline = canvasBaseline;
 
         // calcula posição
-        let x = position.x;
+        let x = position.x + this.textMarginLeft;
         let y = position.y;
 
         if (this.textHorizontalAlign === HorizontalAlign.Middle) x += size.x / 2;
